@@ -629,10 +629,10 @@ hardest valid question.
   is only `0.087` away from the closest invalid one, so a near-topic question
   could still pass or be refused unpredictably. I stopped after one threshold
   change because changing retrieval or generation as well would make the result
-  impossible to attribute to one improvement. A later exploratory hybrid
-  keyword-plus-semantic implementation is present in `store.py`, but its full
-  three-run evaluation was blocked by the provider quota, so it is not claimed
-  as the measured improvement for this submission.
+  impossible to attribute to one improvement. I explored a hybrid
+  keyword-plus-semantic implementation in separate commits, but its full
+  three-run evaluation was blocked by the provider quota. I reverted that
+  unmeasured experiment so the submitted code still matches these run logs.
 
 ## What I'd Do Differently
 
