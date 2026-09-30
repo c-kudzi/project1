@@ -54,12 +54,5 @@ def check(results: list[Result], threshold: float | None = None) -> GateDecision
     if not results:
         return GateDecision(passed=False, best_distance=1.0, threshold=threshold)
 
-    # Hybrid retrieval may reorder results, but the cutoff remains calibrated
-    # against the original semantic distance scale.
-    best = min(
-        getattr(r, "semantic_distance", None)
-        if getattr(r, "semantic_distance", None) is not None
-        else r.distance
-        for r in results
-    )
+    best = min(r.distance for r in results)
     return GateDecision(passed=best < threshold, best_distance=best, threshold=threshold)
