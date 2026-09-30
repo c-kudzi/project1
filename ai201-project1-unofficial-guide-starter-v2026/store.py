@@ -17,11 +17,8 @@ rest of the project if they were wrong:
    install needs neither PyTorch nor a reachable Hugging Face. See `_embedder`.
 """
 
-import math
 import os
-import re
 import shutil
-from collections import Counter
 from dataclasses import dataclass
 
 # Must be set BEFORE chromadb is imported. Without it, some Chroma versions
@@ -45,7 +42,6 @@ class Result:
     label: str
     distance: float   # LOWER IS BETTER. 0.3 is close, 0.9 is unrelated.
     produced_by: str
-    semantic_distance: float | None = None
 
 
 _model = None
@@ -53,13 +49,6 @@ _model = None
 # The model Chroma bundles. Anything else in config.EMBEDDING_MODEL means
 # "fetch that one from Hugging Face instead" — see `_embedder`.
 BUNDLED_MODEL = "all-MiniLM-L6-v2"
-
-_TOKEN_RE = re.compile(r"[a-z0-9]+")
-_STOP_WORDS = {
-    "a", "about", "an", "and", "are", "at", "be", "can", "do", "for",
-    "from", "how", "i", "in", "is", "it", "of", "on", "or", "the", "to",
-    "what", "where", "which", "who", "with", "you",
-}
 
 
 class _OnnxEmbedder:
@@ -138,41 +127,6 @@ def embed(texts: list[str]) -> list[list[float]]:
     return vectors.tolist() if hasattr(vectors, "tolist") else vectors
 
 
-def _tokens(text: str) -> list[str]:
-    return [token for token in _TOKEN_RE.findall(text.lower()) if token not in _STOP_WORDS]
-
-
-def _bm25_scores(question: str, documents: list[str]) -> list[float]:
-    """Score exact query terms against documents using Okapi BM25."""
-    query_terms = _tokens(question)
-    if not query_terms:
-        return [0.0] * len(documents)
-
-    document_terms = [_tokens(document) for document in documents]
-    document_frequency = Counter(
-        term for terms in document_terms for term in set(terms)
-    )
-    average_length = sum(len(terms) for terms in document_terms) / len(documents)
-    scores = []
-    for terms in document_terms:
-        counts = Counter(terms)
-        score = 0.0
-        for term in query_terms:
-            frequency = document_frequency.get(term, 0)
-            if not frequency:
-                continue
-            inverse_frequency = math.log1p(
-                (len(documents) - frequency + 0.5) / (frequency + 0.5)
-            )
-            term_frequency = counts[term]
-            length_factor = 1 - 0.75 + 0.75 * len(terms) / average_length
-            score += inverse_frequency * (
-                term_frequency * 2.0 / (term_frequency + length_factor)
-            )
-        scores.append(score)
-    return scores
-
-
 def _client():
     return chromadb.PersistentClient(
         path=str(config.CHROMA_DIR),
@@ -247,39 +201,23 @@ def search(
 
     raw = collection.query(
         query_embeddings=embed([question]),
-        n_results=collection.count(),
+        n_results=min(top_k, collection.count()),
     )
 
-    documents = raw["documents"][0]
-    semantic_distances = raw["distances"][0]
-    keyword_scores = _bm25_scores(question, documents)
-    maximum_keyword_score = max(keyword_scores, default=0.0)
-
     results: list[Result] = []
-    for text, meta, distance, keyword_score in zip(
-        documents,
-        raw["metadatas"][0],
-        semantic_distances,
-        keyword_scores,
+    for text, meta, distance in zip(
+        raw["documents"][0], raw["metadatas"][0], raw["distances"][0]
     ):
-        keyword_strength = (
-            keyword_score / maximum_keyword_score
-            if maximum_keyword_score
-            else 0.0
-        )
-        hybrid_distance = float(distance) * (1.0 - 0.20 * keyword_strength)
         results.append(
             Result(
                 text=text,
                 source=str(meta.get("source", "unknown")),
                 label=f"{meta.get('source', 'unknown')}#{meta.get('index', 0)}",
-                distance=hybrid_distance,
+                distance=float(distance),
                 produced_by=str(meta.get("produced_by", "unknown")),
-                semantic_distance=float(distance),
             )
         )
-    results.sort(key=lambda result: result.distance)
-    return results[:top_k]
+    return results
 
 
 def index_exists(corpus: str | None = None, variant: str = "default") -> bool:
