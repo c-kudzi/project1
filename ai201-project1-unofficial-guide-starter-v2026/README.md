@@ -629,9 +629,10 @@ hardest valid question.
   is only `0.087` away from the closest invalid one, so a near-topic question
   could still pass or be refused unpredictably. I stopped after one threshold
   change because changing retrieval or generation as well would make the result
-  impossible to attribute to one improvement. The next focused improvement
-  would be hybrid keyword-plus-semantic search, especially for names and exact
-  numbers.
+  impossible to attribute to one improvement. A later exploratory hybrid
+  keyword-plus-semantic implementation is present in `store.py`, but its full
+  three-run evaluation was blocked by the provider quota, so it is not claimed
+  as the measured improvement for this submission.
 
 ## What I'd Do Differently
 
