@@ -73,7 +73,7 @@ TOP_K = 7               # how many chunks to pull back per question
 # 0.087 is a narrower gap than I would like — see the README. It is narrow
 # because a question phrased without the subject's name is genuinely closer to
 # an unrelated question than to a keyword match.
-THRESHOLD = 0.74
+THRESHOLD = 0.72
 
 
 # ─── Models ──────────────────────────────────────────────────────────────────
